@@ -18,20 +18,29 @@ A collection of Tampermonkey userscripts.
 ### How to install and set up Tampermonkey
 
 1. **Install the Tampermonkey extension**
-   - **Chrome**: Visit the [Chrome Web Store](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo) and click **Add to Chrome**.
-   - **Edge**: Visit the [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd) and click **Get**.
+   - **Chrome** (recommended): Visit the [Chrome Web Store](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo) and click **Add to Chrome** → **Add extension**.
+   - **Edge**: Visit the [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd) and click **Get** → **Add extension**.
 
-2. **Enable Developer Mode (Chrome / Edge)**
-   - Navigate to `chrome://extensions` (or `edge://extensions`).
-   - Toggle **Developer mode** on (top-right corner).
-   - This is required for Tampermonkey to have full script injection capabilities.
+2. **Pin the extension to the toolbar** (if the icon is not visible)
+   - Click the **puzzle piece icon** (🧩 Extensions) at the top-right of the browser toolbar.
+   - Find **Tampermonkey** in the list.
+   - Click the **pin icon** (📌) next to it — the Tampermonkey icon will now always appear in the toolbar.
 
-3. **Add a userscript**
+3. **⚠️ Enable Developer Mode and User Scripts permission**
+   - Right-click the **Tampermonkey icon** in the toolbar and select **Manage Extension**.
+   - On the extension detail page:
+     - ⚠️ Turn **ON** the **Developer mode** toggle.
+     - ⚠️ Turn **ON** the **Allow User Scripts** toggle.
+   - Confirm any prompts the browser shows.
+
+   > **⚠️ IMPORTANT**: Both **Developer mode** and **Allow User Scripts** MUST be enabled. Without these settings, Tampermonkey cannot inject or run userscripts and your scripts will silently fail.
+
+4. **Add a userscript**
    - Click the Tampermonkey icon in your browser toolbar, then select **Create a new script**.
    - Paste the contents of the `.user.js` file you want to use, then press **Ctrl + S** (or **Cmd + S**) to save.
    - Alternatively, open a raw `.user.js` URL directly in your browser — Tampermonkey will automatically prompt you to install it.
 
-4. **Manage scripts**
+5. **Manage scripts**
    - Click the Tampermonkey icon → **Dashboard** to enable, disable, edit, or delete installed scripts.
 
 ---
