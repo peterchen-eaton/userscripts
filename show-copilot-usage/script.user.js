@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GitHub Copilot Quota Overlay
 // @namespace    https://github.com/PeterChen-eaton/userscripts/blob/main/show-copilot-usage
-// @version      2026.04.24
+// @version      2026.06.18
 // @description  Show Copilot quota on any GitHub page and refresh every 5 minutes.
 // @author       Peter
 // @match        https://github.com/*
@@ -20,7 +20,7 @@
 
     const API_URL = 'https://github.com/github-copilot/chat/entitlement';
     const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
-    const STORAGE_KEY = 'copilotQuotaOverlayCacheV1';
+    const STORAGE_KEY = 'copilotQuotaOverlayCacheV2';
     const WIDGET_ID = 'tm-copilot-quota-overlay';
 
     const state = {
@@ -33,8 +33,12 @@
 
     let lastFetchAt = 0;
 
-    function formatNumber(value) {
-        return typeof value === 'number' && Number.isFinite(value) ? String(value) : '-';
+    function formatCount(value) {
+        return typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('en-US') : '-';
+    }
+
+    function formatMoney(value) {
+        return typeof value === 'number' && Number.isFinite(value) ? '$' + value.toFixed(2) : '-';
     }
 
     function formatPercent(value) {
@@ -52,6 +56,16 @@
         const hh = String(date.getHours()).padStart(2, '0');
         const mm = String(date.getMinutes()).padStart(2, '0');
         return hh + ':' + mm;
+    }
+
+    function formatResetDate(data) {
+        if (data && data.resetDate) {
+            return data.resetDate;
+        }
+        if (data && data.resetDateUtc) {
+            return String(data.resetDateUtc).slice(0, 10);
+        }
+        return '-';
     }
 
     function loadCache() {
@@ -81,27 +95,64 @@
         }
     }
 
+    function firstFiniteNumber(values) {
+        for (let i = 0; i < values.length; i++) {
+            const value = values[i];
+            if (typeof value === 'number' && Number.isFinite(value)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
     function normalizeQuotaPayload(payload) {
         const quotas = payload && payload.quotas;
-        const limits = quotas && quotas.limits;
-        const remaining = quotas && quotas.remaining;
+        if (!quotas || typeof quotas !== 'object') {
+            throw new Error('Missing quotas in response');
+        }
 
-        const normalized = {
-            limitPremium: limits && limits.premiumInteractions,
-            remainingPremium: remaining && remaining.premiumInteractions,
-            premiumPercentage: remaining && remaining.premiumInteractionsPercentage,
-            chatPercentage: remaining && remaining.chatPercentage,
-            resetDate: quotas && quotas.resetDate
-        };
+        // Token-based billing (rolled out 2026-06) exposes per-feature *Quota
+        // objects; fall back to the legacy limits/remaining shape for resilience.
+        const limits = quotas.limits || {};
+        const remaining = quotas.remaining || {};
+        const premiumQuota = quotas.premiumInteractionsQuota || {};
+        const chatQuota = quotas.chatQuota || {};
+        const completionsQuota = quotas.completionsQuota || {};
+        const overageQuota = quotas.overageQuota || {};
 
-        if (
-            typeof normalized.limitPremium !== 'number' ||
-            typeof normalized.remainingPremium !== 'number'
-        ) {
+        const premiumTotal = firstFiniteNumber([premiumQuota.total, limits.premiumInteractions]);
+
+        const derivedUsed = (typeof limits.premiumInteractions === 'number' &&
+            typeof remaining.premiumInteractions === 'number')
+            ? limits.premiumInteractions - remaining.premiumInteractions
+            : null;
+        const premiumUsed = firstFiniteNumber([premiumQuota.used, derivedUsed]);
+
+        const premiumPercentRemaining = firstFiniteNumber([
+            premiumQuota.percentRemaining,
+            remaining.premiumInteractionsPercentage
+        ]);
+
+        const premiumUnlimited = premiumQuota.unlimited === true;
+
+        if (!premiumUnlimited && premiumTotal === null && premiumPercentRemaining === null) {
             throw new Error('Missing premium quota fields in response');
         }
 
-        return normalized;
+        return {
+            premiumTotal: premiumTotal,
+            premiumUsed: premiumUsed,
+            premiumPercentRemaining: premiumPercentRemaining,
+            premiumUnlimited: premiumUnlimited,
+            chatUnlimited: chatQuota.unlimited === true,
+            completionsUnlimited: completionsQuota.unlimited === true,
+            overagesEnabled: quotas.overagesEnabled === true,
+            overageSpend: firstFiniteNumber([overageQuota.spend]),
+            overageBudget: firstFiniteNumber([overageQuota.budget]),
+            tokenBasedBilling: quotas.tokenBasedBillingEnabled === true,
+            resetDate: quotas.resetDate || null,
+            resetDateUtc: quotas.resetDateUtc || null
+        };
     }
 
     async function fetchQuota() {
@@ -220,21 +271,41 @@
             ? '<span style="padding: 1px 5px; border-radius: 999px; background: rgba(255, 200, 120, 0.18); color: rgba(255, 218, 161, 0.9); font-size: 10px;">stale</span>'
             : '<span style="padding: 1px 5px; border-radius: 999px; background: rgba(110, 180, 130, 0.17); color: rgba(176, 232, 190, 0.86); font-size: 10px;">live</span>';
 
-        const usedPremium = Math.max(0, state.data.limitPremium - state.data.remainingPremium);
-        const usedPremiumPercentage = typeof state.data.premiumPercentage === 'number'
-            ? Math.max(0, 100 - state.data.premiumPercentage)
-            : null;
+        // Premium is the only depletable budget; under token-based billing the
+        // percentage left is the headline metric, raw used/total is context.
+        const premiumLine = state.data.premiumUnlimited
+            ? 'Premium: unlimited'
+            : 'Premium: ' + formatPercent(state.data.premiumPercentRemaining) + ' left' +
+                (typeof state.data.premiumTotal === 'number'
+                    ? ' (' + formatCount(state.data.premiumUsed) + ' / ' + formatCount(state.data.premiumTotal) + ')'
+                    : '');
+
+        const rows = ['<div style="opacity: 0.84;">' + premiumLine + '</div>'];
+
+        if (state.data.overagesEnabled) {
+            rows.push('<div style="opacity: 0.8; margin-top: 2px;">Overage: ' + formatMoney(state.data.overageSpend) + ' spent</div>');
+        }
+
+        const unlimitedParts = [];
+        if (state.data.chatUnlimited) {
+            unlimitedParts.push('Chat');
+        }
+        if (state.data.completionsUnlimited) {
+            unlimitedParts.push('Completions');
+        }
+        if (unlimitedParts.length) {
+            rows.push('<div style="opacity: 0.8; margin-top: 2px;">' + unlimitedParts.join(' / ') + ': unlimited</div>');
+        }
+
+        rows.push('<div style="opacity: 0.8; margin-top: 2px;">Reset: ' + formatResetDate(state.data) + '</div>');
+        rows.push('<div style="opacity: 0.58; margin-top: 4px; font-size: 10px;">Updated ' + formatUpdatedTime(state.updatedAt) + '</div>');
 
         widget.innerHTML = [
             '<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;">',
             '<span style="font-weight: 600; opacity: 0.9;">Copilot Quota</span>',
             staleBadge,
-            '</div>',
-            '<div style="opacity: 0.84;">Premium: ' + formatNumber(usedPremium) + ' / ' + formatNumber(state.data.limitPremium) + ' (' + formatPercent(usedPremiumPercentage) + ')</div>',
-            '<div style="opacity: 0.8; margin-top: 2px;">Chat: ' + formatPercent(state.data.chatPercentage) + '</div>',
-            '<div style="opacity: 0.8; margin-top: 2px;">Reset: ' + (state.data.resetDate || '-') + '</div>',
-            '<div style="opacity: 0.58; margin-top: 4px; font-size: 10px;">Updated ' + formatUpdatedTime(state.updatedAt) + '</div>'
-        ].join('');
+            '</div>'
+        ].concat(rows).join('');
     }
 
     async function refreshQuota() {
