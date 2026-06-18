@@ -210,7 +210,7 @@
             widget.style.position = 'fixed';
             widget.style.right = '12px';
             widget.style.zIndex = '9999';
-            widget.style.width = 'min(220px, calc(100vw - 24px))';
+            widget.style.width = 'min(260px, calc(100vw - 24px))';
             widget.style.padding = '8px 10px';
             widget.style.borderRadius = '10px';
             widget.style.border = '1px solid rgba(240, 246, 252, 0.14)';
@@ -280,7 +280,7 @@
                     ? ' (' + formatCount(state.data.premiumUsed) + ' / ' + formatCount(state.data.premiumTotal) + ')'
                     : '');
 
-        const rows = ['<div style="opacity: 0.84;">' + premiumLine + '</div>'];
+        const rows = ['<div style="opacity: 0.84; white-space: nowrap;">' + premiumLine + '</div>'];
 
         if (state.data.overagesEnabled) {
             rows.push('<div style="opacity: 0.8; margin-top: 2px;">Overage: ' + formatMoney(state.data.overageSpend) + ' spent</div>');
