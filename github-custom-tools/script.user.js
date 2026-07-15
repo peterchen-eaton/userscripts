@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GitHub Custom Tools
 // @namespace    https://github.com/PeterChen-eaton/userscripts/blob/main/github-custom-tools
-// @version      2026.06.17
+// @version      2026.07.15
 // @description  GitHub Custom Tools
 // @author       Peter
 // @match        https://github.com/*
@@ -17,10 +17,10 @@
     // (e.g. SPA navigation back to the dashboard).
     let sortedList = null;
 
-    function widenSidebar() {
+    function adjustSidebarWidth() {
         const sidebar = document.querySelector('.feed-left-sidebar');
-        if (sidebar && sidebar.style.minWidth !== '375px') {
-            sidebar.style.minWidth = '375px';
+        if (sidebar && sidebar.style.minWidth !== '390px') {
+            sidebar.style.minWidth = '390px';
         }
     }
 
@@ -84,7 +84,7 @@
     }
 
     function run() {
-        widenSidebar();
+        adjustSidebarWidth();
         autoFollowSso();
         sortRepos();
     }
