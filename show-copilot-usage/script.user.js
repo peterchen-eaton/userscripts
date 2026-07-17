@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GitHub Copilot Quota Overlay
 // @namespace    https://github.com/PeterChen-eaton/userscripts/blob/main/show-copilot-usage
-// @version      2026.06.18
+// @version      2026.07.17
 // @description  Show Copilot quota on any GitHub page and refresh every 5 minutes.
 // @author       Peter
 // @match        https://github.com/*
@@ -282,19 +282,8 @@
 
         const rows = ['<div style="opacity: 0.84; white-space: nowrap;">' + premiumLine + '</div>'];
 
-        if (state.data.overagesEnabled) {
+        if (typeof state.data.overageSpend === 'number' && state.data.overageSpend > 0) {
             rows.push('<div style="opacity: 0.8; margin-top: 2px;">Overage: ' + formatMoney(state.data.overageSpend) + ' spent</div>');
-        }
-
-        const unlimitedParts = [];
-        if (state.data.chatUnlimited) {
-            unlimitedParts.push('Chat');
-        }
-        if (state.data.completionsUnlimited) {
-            unlimitedParts.push('Completions');
-        }
-        if (unlimitedParts.length) {
-            rows.push('<div style="opacity: 0.8; margin-top: 2px;">' + unlimitedParts.join(' / ') + ': unlimited</div>');
         }
 
         rows.push('<div style="opacity: 0.8; margin-top: 2px;">Reset: ' + formatResetDate(state.data) + '</div>');
